@@ -10,3 +10,5 @@ If an SSH server is found, the script will prompt the user to run Hydra for pass
 The script will prompt the user for the SSH port number, the number of retries, the delay between retries, the Hydra username format, and the Hydra password format. It will then run Hydra with the specified options and store the output in a file.
 
 If any credentials are found, the script will display them to the user.
+
+*This is still under construction*
