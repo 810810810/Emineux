@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Define constants
+WORDLIST_DIR="/path/to/wordlists"
+HYDRA_THREADS=8
+HYDRA_TIMEOUT=10
+
 # Display a banner
 echo "███████╗███╗   ███╗██╗███╗   ██╗███████╗██╗   ██╗██╗  ██╗"
 echo "██╔════╝████╗ ████║██║████╗  ██║██╔════╝██║   ██║╚██╗██╔╝"
@@ -9,11 +14,6 @@ echo "███████╗██║ ╚═╝ ██║██║██║ �
 echo "╚══════╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝"
 echo "Advanced Nmap and Hydra Script"
 echo
-
-# Define constants
-WORDLIST_DIR="/path/to/wordlists"
-HYDRA_THREADS=8
-HYDRA_TIMEOUT=10
 
 # Display a prompt for the user to enter a target IP address
 read -r -p "Enter a target IP address: " ip_address
