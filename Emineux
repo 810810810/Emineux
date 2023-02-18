@@ -15,60 +15,133 @@ echo "╚══════╝╚═╝     ╚═╝╚═╝╚═╝  ╚═�
 echo "Advanced Nmap and Hydra Script"
 echo
 
-# Display a prompt for the user to enter a target IP address
+#!/bin/bash
+
+# Define constants
+WORDLIST_DIR="/path/to/wordlists"
+HYDRA_THREADS=8
+HYDRA_TIMEOUT=10
+
+# Define functions
+check_ip_address() {
+  if ! [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Invalid IP address"
+    exit 1
+  fi
+}
+
+scan_ports() {
+  echo "Scanning for open ports on $1..."
+  nmap_output=$(nmap -p- -T4 "$1")
+  echo "Open ports for $1:"
+  echo "$nmap_output" | grep 'open'
+}
+
+run_hydra() {
+  echo "Type 'rockyou.txt' for rockyou wordlist. Type 'cewl.txt' for automatic wordlist creation. Type 'custom_wordlist.txt' to path your own wordlist."
+  select wordlist_name in "rockyou.txt" "cewl.txt" "custom_wordlist.txt"; do
+    case $wordlist_name in
+      "rockyou.txt")
+        wordlist_path="$WORDLIST_DIR/rockyou.txt"
+        break
+        ;;
+      "cewl.txt")
+        if command -v cewl >/dev/null 2>&1; then
+          read -r -p "Enter a URL to crawl: " cewl_url
+          cewl_output="$WORDLIST_DIR/cewl_output.txt"
+          cewl "$cewl_url" -w $cewl_output
+          wordlist_path="$cewl_output"
+          break
+        else
+          echo "Error: cewl command not found. Please install cewl and try again."
+          exit 1
+        fi
+        ;;
+      "custom_wordlist.txt")
+        read -r -p "Enter the path to a custom wordlist: " custom_wordlist_path
+        if [[ -f "$custom_wordlist_path" ]]; then
+          wordlist_path="$custom_wordlist_path"
+          break
+        else
+          echo "Error: $custom_wordlist_path not found. Please check the file path and try again."
+        fi
+        ;;
+      *)
+        echo "Invalid option. Please select a valid wordlist."
+        ;;
+    esac
+  done
+
+  hydra_output=$(hydra -l root -P "$wordlist_path" -t $HYDRA_THREADS -s 22 -o hydra_output.txt "$1" ssh -T $HYDRA_TIMEOUT)
+
+  # Display a progress indicator for Hydra
+  echo "Running Hydra password recovery:"
+  while read line; do
+    if [[ $line == *"password"* ]]; then
+      echo -ne '###                       (10%)\r'
+      sleep 1
+      echo -ne '#########                 (30%)\r'
+      sleep 1
+      echo -ne '#############             (50%)\r'
+      sleep 1
+      echo -ne '#################         (70%)\r'
+      sleep 1
+      echo -ne '#######################   (100%)\r'
+      echo -ne '\n'
+      break
+    fi
+  done < <(echo "$hydra_output")
+
+  # Output the Hydra results to the user
+  echo "$hydra_output"
+  echo "Hydra password recovery complete. Results saved to hydra_output.txt."
+}
+
+# Main code block
 read -r -p "Enter a target IP address: " ip_address
+check_ip_address "$ip_address"
+scan_ports "$ip_address"
 
-# Check if the target IP address is valid
-if ! [[ "$ip_address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Invalid IP address"
-  exit 1
-fi
-
-# Run Nmap to scan for open ports and store the output in a variable
-echo "Scanning for open ports on $ip_address..."
-nmap_output=$(nmap -p- -T4 "$ip_address")
-
-# Display the open ports in a user-friendly format
-echo "Open ports for $ip_address:"
-echo "$nmap_output" | grep 'open'
-
-# Check if an SSH server is open and prompt the user to run Hydra for password recovery
-if echo "$nmap_output" | grep -q '22/tcp open ssh'; then
+if echo "$nmap_output" | grep -q '22/tcp openopen ssh'
+if [[ $? -eq 0 ]]; then
   read -r -p "An SSH server is open on $ip_address. Do you want to run Hydra for password recovery? (y/n) " run_hydra
   if [[ "$run_hydra" =~ ^[Yy]$ ]]; then
-    echo "Type 'rockyou.txt' for rockyou wordlist. Type :'cewl.txt' for automatic wordlist creation. Type 'custom_wordlist.txt' to path your own wordlist."
-    select wordlist_name in "rockyou.txt" "cewl.txt" "custom_wordlist.txt"; do
-      case $wordlist_name in
-        "rockyou.txt")
-          wordlist_path="$WORDLIST_DIR/rockyou.txt"
-          break
-          ;;
-        "cewl.txt")
-          if command -v cewl >/dev/null 2>&1; then
-            read -r -p "Enter a URL to crawl: " cewl_url
-            cewl_output="$WORDLIST_DIR/cewl_output.txt"
-            cewl "$cewl_url" -w $cewl_output
-            wordlist_path="$cewl_output"
-            break
-          else
-            echo "Error: cewl command not found. Please install cewl and try again."
-            exit 1
-          fi
-          ;;
-        "custom_wordlist.txt")
-          read -r -p "Enter the path to a custom wordlist: " custom_wordlist_path
-          if [[ -f "$custom_wordlist_path" ]]; then
-            wordlist_path="$custom_wordlist_path"
-            break
-          else
-            echo "Error: $custom_wordlist_path not found. Please check the file path and try again."
-          fi
-          ;;
-        *)
-          echo "Invalid option. Please select a valid wordlist."
-          ;;
-      esac
-    done
+    # Prompt the user to select a wordlist for Hydra to use
+    echo "Select a wordlist for Hydra to use:"
+    echo "1) rockyou.txt"
+    echo "2) cewl.txt"
+    echo "3) custom_wordlist.txt"
+    read -r -p "Enter your choice: " wordlist_choice
+
+    case "$wordlist_choice" in
+      1)
+        wordlist_path="$WORDLIST_DIR/rockyou.txt"
+        ;;
+      2)
+        if command -v cewl >/dev/null 2>&1; then
+          read -r -p "Enter a URL to crawl: " cewl_url
+          cewl_output="$WORDLIST_DIR/cewl_output.txt"
+          cewl "$cewl_url" -w $cewl_output
+          wordlist_path="$cewl_output"
+        else
+          echo "Error: cewl command not found. Please install cewl and try again."
+          exit 1
+        fi
+        ;;
+      3)
+        read -r -p "Enter the path to a custom wordlist: " custom_wordlist_path
+        if [[ -f "$custom_wordlist_path" ]]; then
+          wordlist_path="$custom_wordlist_path"
+        else
+          echo "Error: $custom_wordlist_path not found. Please check the file path and try again."
+          exit 1
+        fi
+        ;;
+      *)
+        echo "Invalid choice. Please select a valid wordlist."
+        exit 1
+        ;;
+    esac
 
     # Run Hydra to recover the SSH password using the selected wordlist
     hydra_output=$(hydra -l root -P "$wordlist_path" -t $HYDRA_THREADS -s 22 -o hydra_output.txt "$ip_address" ssh -T $HYDRA_TIMEOUT)
@@ -87,5 +160,4 @@ if echo "$nmap_output" | grep -q '22/tcp open ssh'; then
     echo "Hydra password recovery complete. Results saved to hydra_output.txt."
   fi
 fi
-
 
